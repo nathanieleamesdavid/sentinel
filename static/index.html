@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel - Medeed Intelligence</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f3f7; color: #1a1a2e; }
+.header { background: #141c2b; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+.header-left h1 { font-size: 22px; font-weight: 700; color: #E8703A; letter-spacing: 2px; }
+.header-left p { font-size: 12px; color: #8892a4; margin-top: 2px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.header-right span { font-size: 12px; color: #8892a4; }
+.btn-refresh { background: #E8703A; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.btn-refresh:hover { background: #d4622e; }
+.nav { background: #1a2335; display: flex; gap: 0; padding: 0 24px; }
+.nav-tab { color: #8892a4; padding: 14px 20px; cursor: pointer; font-size: 14px; font-weight: 500; border-bottom: 2px solid transparent; }
+.nav-tab.active { color: #E8703A; border-bottom-color: #E8703A; }
+.nav-tab:hover { color: #cdd5e0; }
+.layout { display: flex; min-height: calc(100vh - 110px); }
+.sidebar { width: 200px; min-width: 200px; background: #1a2335; padding: 20px 14px; overflow-y: auto; }
+.sidebar-section { margin-bottom: 24px; }
+.sidebar-title { font-size: 10px; font-weight: 700; color: #8892a4; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; }
+.toggle-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer; }
+.toggle { width: 34px; height: 18px; border-radius: 9px; background: #2d3748; position: relative; transition: background 0.2s; flex-shrink: 0; }
+.toggle.on { background: #E8703A; }
+.toggle-dot { width: 14px; height: 14px; border-radius: 50%; background: white; position: absolute; top: 2px; left: 2px; transition: left 0.2s; }
+.toggle.on .toggle-dot { left: 18px; }
+.toggle-label { font-size: 12px; color: #cdd5e0; }
+.main { flex: 1; padding: 20px; overflow-y: auto; }
+.stats-bar { display: flex; gap: 12px; margin-bottom: 20px; }
+.stat-card { background: white; border-radius: 8px; padding: 14px 18px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.stat-card .num { font-size: 24px; font-weight: 700; color: #141c2b; }
+.stat-card .lbl { font-size: 11px; color: #8892a4; margin-top: 2px; }
+.card { background: white; border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); cursor: pointer; border-left: 4px solid #e2e8f0; transition: box-shadow 0.15s, transform 0.1s; }
+.card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-1px); }
+.card.path1 { border-left-color: #4f46e5; }
+.card.path2 { border-left-color: #059669; }
+.card.urgency-high { border-left-color: #dc2626; }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.card-title { font-size: 14px; font-weight: 600; color: #1a1a2e; line-height: 1.4; flex: 1; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
+.badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.badge-path1 { background: #ede9fe; color: #4f46e5; }
+.badge-path2 { background: #d1fae5; color: #059669; }
+.badge-high { background: #fee2e2; color: #dc2626; }
+.badge-medium { background: #fef3c7; color: #d97706; }
+.badge-low { background: #f0fdf4; color: #16a34a; }
+.badge-domain { background: #e0f2fe; color: #0369a1; }
+.card-synthesis { font-size: 13px; color: #4a5568; line-height: 1.6; margin-bottom: 10px; }
+.card-footer { display: flex; align-items: center; justify-content: space-between; }
+.card-meta { font-size: 11px; color: #a0aec0; }
+.card-source { font-size: 11px; font-weight: 600; color: #E8703A; }
+.empty { text-align: center; padding: 80px 20px; color: #a0aec0; }
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty p { font-size: 15px; }
+.empty small { font-size: 13px; margin-top: 8px; display: block; }
+.detail-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 420px; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); overflow-y: auto; z-index: 100; padding: 24px; }
+.detail-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: #8892a4; }
+.detail-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 10px 0 16px 0; line-height: 1.4; }
+.detail-synthesis { font-size: 14px; color: #4a5568; line-height: 1.7; background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+.detail-meta { font-size: 12px; color: #8892a4; margin-bottom: 6px; }
+.detail-meta strong { color: #4a5568; }
+.comment-section { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.comment-section h4 { font-size: 13px; font-weight: 700; color: #4a5568; margin-bottom: 12px; }
+.comment { background: #f8fafc; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.comment-author { font-size: 11px; font-weight: 700; color: #E8703A; }
+.comment-text { font-size: 13px; color: #4a5568; margin-top: 4px; }
+.comment-time { font-size: 10px; color: #a0aec0; margin-top: 4px; }
+.comment-form { display: flex; gap: 8px; margin-top: 12px; }
+.comment-form input { flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.comment-form button { background: #E8703A; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.source-link { display: inline-block; margin-top: 12px; color: #E8703A; font-size: 13px; text-decoration: none; font-weight: 600; }
+.landscape-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.domain-card { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.domain-card h3 { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+.domain-count { font-size: 28px; font-weight: 700; color: #E8703A; }
+.domain-label { font-size: 11px; color: #8892a4; }
+.loading { text-align: center; padding: 40px; color: #8892a4; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// API base — empty string means relative to current origin (works behind nginx)
+const API = '';
+
+// ── DOMAIN CONFIG ────────────────────────────────────
+const DOMAIN_BODY = {
+  cognitive:  { cx: 280, cy: 207, label: 'Brain',      region: 'Cerebral Cortex',         la: -90  },
+  sleep:      { cx: 307, cy: 193, label: 'Sleep',       region: 'Pineal / Circadian',      la: -55  },
+  sensory:    { cx: 253, cy: 220, label: 'Sensory',     region: 'Eyes · Ears · Olfactory', la: -125 },
+  vascular:   { cx: 263, cy: 316, label: 'Heart',       region: 'Cardiovascular',          la: 155  },
+  immune:     { cx: 304, cy: 326, label: 'Immune',      region: 'Thymus / Lymphoid',       la: 25   },
+  epigenetic: { cx: 319, cy: 280, label: 'Epigenetic',  region: 'Cellular / Nuclear',      la: -15  },
+  cancer:     { cx: 280, cy: 388, label: 'Oncology',    region: 'Multi-tissue',            la: 90   },
+  metabolic:  { cx: 280, cy: 426, label: 'Metabolic',   region: 'Liver / Pancreas',        la: 110  },
+  musculo:    { cx: 231, cy: 314, label: 'Musculo',     region: 'Muscle / Bone',           la: 165  },
+};
+const DOMAIN_COLOR = {
+  cognitive: '#4f46e5', sleep: '#7c3aed', sensory: '#0891b2',
+  vascular:  '#dc2626', immune: '#16a34a', epigenetic: '#d97706',
+  cancer:    '#9333ea', metabolic: '#ea580c', musculo: '#0d9488',
+};
+
+// ── WORLD MAP ────────────────────────────────────────
+function WorldMapView({ insights }) {
+  const svgRef = useRef(null);
+  const [tooltip, setTooltip] = useState(null);
+  const [clock, setClock] = useState('');
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = new Date();
+      setClock(n.toUTCString().slice(17,25) + ' UTC');
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const geoData = {};
+  insights.forEach(i => {
+    if (!i.country) return;
+    const cc = i.country.toUpperCase();
+    if (!geoData[cc]) geoData[cc] = [];
+    geoData[cc].push(i);
+  });
+
+  const CENTROIDS = {
+    US:[-98,39],GB:[-2,54],DE:[10,51],FR:[2,46],CN:[104,35],
+    JP:[138,36],KR:[128,36],IL:[35,31],CH:[8,47],SE:[18,62],
+    AU:[134,-25],CA:[-95,60],IN:[78,21],BR:[-51,-14],NL:[5,52],
+    DK:[10,56],NO:[10,62],IT:[12,43],ES:[-3,40],BE:[4,50],
+    AT:[14,47],FI:[26,62],SG:[104,1],TW:[121,24],NZ:[172,-41],
+    ZA:[25,-29],RU:[60,55],UA:[31,49],PL:[20,52],CZ:[15,50],
+    HU:[19,47],PT:[-8,39],GR:[22,39],TR:[35,39],SA:[45,24],
+    AE:[54,24],QA:[51,25],EG:[30,27],MX:[-102,23],AR:[-65,-34],
+  };
+
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const W = 900, H = 480;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
+    svg.attr('viewBox', '0 0 ' + W + ' ' + H);
+
+    const proj = d3.geoNaturalEarth1().scale(145).translate([W/2, H/2]);
+    const pathGen = d3.geoPath().projection(proj);
+
+    svg.append('rect').attr('width', W).attr('height', H).attr('fill', '#050d1a');
+    svg.append('rect').attr('width', W).attr('height', H)
+      .attr('fill', 'none').attr('stroke', '#1a3a5c').attr('stroke-width', 2);
+
+    const grat = d3.geoGraticule()();
+    svg.append('path').datum(grat).attr('d', pathGen)
+      .attr('fill', 'none').attr('stroke', '#0d2137').attr('stroke-width', 0.4);
+
+    fetch('https://unpkg.com/world-atlas@2/countries-110m.json')
+      .then(r => r.json())
+      .then(world => {
+        const countries = topojson.feature(world, world.objects.countries);
+        svg.append('g').selectAll('path')
+          .data(countries.features).join('path')
+          .attr('d', pathGen)
+          .attr('fill', '#0d2a3f')
+          .attr('stroke', '#1a4060')
+          .attr('stroke-width', 0.3);
+
+        Object.entries(geoData).forEach(([cc, items]) => {
+          const coord = CENTROIDS[cc];
+          if (!coord) return;
+          const projected = proj(coord);
+          if (!projected) return;
+          const [px, py] = projected;
+
+          const paths = [...new Set(items.map(i => i.path))];
+          const hasHigh = items.some(i => i.urgency === 'high');
+          const col = hasHigh ? '#ff3333'
+            : (paths.includes(1) && paths.includes(2)) ? '#ff9900'
+            : paths.includes(1) ? '#9966ff' : '#00cc66';
+
+          const g = svg.append('g').attr('transform', 'translate(' + px + ',' + py + ')');
+
+          [5, 10, 15].forEach((r, idx) => {
+            const ring = g.append('circle')
+              .attr('r', r).attr('fill', 'none')
+              .attr('stroke', col).attr('stroke-width', 1)
+              .attr('opacity', 0.5 - idx * 0.12);
+            ring.append('animate')
+              .attr('attributeName', 'r')
+              .attr('values', r + ';' + (r+8) + ';' + r)
+              .attr('dur', (1.5 + idx * 0.4) + 's')
+              .attr('repeatCount', 'indefinite');
+            ring.append('animate')
+              .attr('attributeName', 'opacity')
+              .attr('values', '0.5;0;0.5')
+              .attr('dur', (1.5 + idx * 0.4) + 's')
+              .attr('repeatCount', 'indefinite');
+          });
+
+          g.append('circle').attr('r', 5).attr('fill', col)
+            .attr('stroke', '#fff').attr('stroke-width', 1);
+          g.append('text').attr('x', 8).attr('y', -5)
+            .attr('fill', col).attr('font-size', 9).attr('font-weight', 'bold')
+            .text(items.length);
+
+          g.append('circle').attr('r', 18).attr('fill', 'transparent')
+            .attr('cursor', 'pointer')
+            .on('mouseover', (evt) => setTooltip({ cc, items, x: evt.clientX, y: evt.clientY }))
+            .on('mouseout', () => setTooltip(null));
+        });
+
+        // scan line
+        const scanLine = svg.append('line')
+          .attr('y1', 0).attr('y2', H)
+          .attr('stroke', 'rgba(0,200,255,0.12)').attr('stroke-width', 3);
+        let scanX = 0;
+        const tick = () => {
+          scanX = (scanX + 1.5) % W;
+          scanLine.attr('x1', scanX).attr('x2', scanX);
+          requestAnimationFrame(tick);
+        };
+        tick();
+      })
+      .catch(() => {
+        svg.append('text').attr('x', W/2).attr('y', H/2)
+          .attr('text-anchor', 'middle').attr('fill', '#556').attr('font-size', 13)
+          .text('Requires internet to load map tiles');
+      });
+  }, [insights]);
+
+  const geoCount = Object.keys(geoData).length;
+
+  return (
+    <div style={{background:'#050d1a', minHeight:'calc(100vh - 150px)', position:'relative'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+        padding:'8px 32px', borderBottom:'1px solid #1a3a5c', background:'rgba(5,13,26,0.95)'}}>
+        <span style={{color:'#00aaff',fontSize:11,fontFamily:'monospace',letterSpacing:2}}>
+          ◈ SENTINEL GEO-INTELLIGENCE
+        </span>
+        <span style={{color:'#00aaff',fontSize:11,fontFamily:'monospace'}}>{clock}</span>
+        <span style={{color:'#556',fontSize:11,fontFamily:'monospace'}}>
+          {geoCount} REGIONS · {insights.filter(i => i.country).length} GEO-TAGGED
+        </span>
+      </div>
+      <svg ref={svgRef} style={{width:'100%', display:'block'}} />
+      {geoCount === 0 && (
+        <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',
+          textAlign:'center',color:'#556',pointerEvents:'none'}}>
+          <div style={{fontSize:36,marginBottom:8}}>🌍</div>
+          <div style={{fontSize:14,color:'#8892a4'}}>No geo-tagged signals yet</div>
+          <div style={{fontSize:12,marginTop:6,color:'#556'}}>Country data appears after next crawl</div>
+        </div>
+      )}
+      <div style={{position:'absolute',bottom:16,right:16,background:'rgba(5,13,26,0.9)',
+        border:'1px solid #1a3a5c',borderRadius:6,padding:'8px 12px',fontSize:10,fontFamily:'monospace'}}>
+        {[['#ff3333','HIGH URGENCY'],['#ff9900','PATH 1+2'],['#9966ff','PATH 1 · NOVEL BIO'],['#00cc66','PATH 2 · DEAL']].map(([c,l]) => (
+          <div key={l} style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:c}}/>
+            <span style={{color:'#8892a4'}}>{l}</span>
+          </div>
+        ))}
+      </div>
+      {tooltip && (
+        <div style={{position:'fixed',top:tooltip.y+12,left:tooltip.x+12,
+          background:'#0d1f33',border:'1px solid #1a6090',borderRadius:6,
+          padding:'8px 12px',fontSize:11,fontFamily:'monospace',color:'#cdd5e0',
+          zIndex:1000,maxWidth:220,pointerEvents:'none'}}>
+          <div style={{color:'#00aaff',fontWeight:'bold',marginBottom:4}}>◈ {tooltip.cc}</div>
+          <div style={{marginBottom:4}}>{tooltip.items.length} signal{tooltip.items.length > 1 ? 's' : ''}</div>
+          {tooltip.items.slice(0,3).map((it,idx) => (
+            <div key={idx} style={{color:'#556',marginTop:2,
+              overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>
+              · {(it.title||'').slice(0,38)}…
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── BODY MAP (VITRUVIAN) ─────────────────────────────
+function BodyMapView({ insights }) {
+  const [hovered, setHovered] = useState(null);
+
+  const counts = {};
+  insights.forEach(i => { if (i.domain) counts[i.domain] = (counts[i.domain]||0)+1; });
+
+  const CX = 280, CY = 430, CR = 245;
+  const toRad = d => d * Math.PI / 180;
+  const labelR = CR + 30;
+  const getLP = (la) => ({
+    x: CX + labelR * Math.cos(toRad(la)),
+    y: CY + labelR * Math.sin(toRad(la)),
+    rot: la < 0 ? la + 90 : la - 90,
+  });
+
+  const TOP_LINES = [
+    "Vetruvio architecto mette nella sua opera d'architectura che le misure dell'omo sono dalla natura",
+    "disstribuite in questo modo: 4 diti fa 1 palmo, et 4 palmi fa 1 pie, et 6 palmi fa 1 chubito,",
+    "et 4 chubiti fa 1 homo, et 4 chubiti fa 1 passo, et 24 palmi fa 1 homo.",
+    "Se tu apri tanto le gambe che tu chagghi 1/14 della tua alteza, et apri et alza tanto le braccia",
+    "che colle lunghe dita tu tochi la linia della somita del chapo, sappi che 'l cientro",
+    "delle stremita delle aperte membra fia il bellicho, et lo spatio che si trova infra le gambe",
+  ];
+  const BOT_LINES = [
+    "fia triangolo equilatero. Tanto apre l'omo nelle braccia quanto e' la sua altezza.",
+    "Dalla nascitura de' chapelli al fine del mento e' il decimo dell'alteza dell'omo.",
+    "Dal fine del mento alla sommita del chapo e' l'ottavo dell'alteza dell'omo.",
+    "Dalla sommita del petto alla sommita del chapo e' il sesto dell'alteza dell'omo.",
+    "Dal mezzo del petto alla sommita del chapo e' il quarto dell'alteza dell'omo.",
+    "La largheza massima delle spalle contiene in se' la quarta parte dell'omo.",
+    "Dalla nascitura del braccio alla sommita del chapo e' il quarto dell'omo.",
+    "Dalla punta del gomito al fine della mano e' il quinto dell'omo.",
+  ];
+
+  return (
+    <div style={{background:'#1e1408',minHeight:'calc(100vh - 150px)',
+      display:'flex',flexDirection:'column',alignItems:'center',padding:'20px 16px'}}>
+      <div style={{color:'#c8a060',fontFamily:'Georgia,serif',fontSize:10,
+        letterSpacing:3,textTransform:'uppercase',marginBottom:12,opacity:0.7}}>
+        De Architectura · Vitruvius · Medeed Longevity Intelligence
+      </div>
+
+      <svg viewBox="0 0 560 780" width="460"
+        style={{display:'block',maxWidth:'100%',
+          filter:'drop-shadow(0 8px 40px rgba(0,0,0,0.8))'}}>
+        <defs>
+          <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f5e8c4"/>
+            <stop offset="50%" stopColor="#ead8a0"/>
+            <stop offset="100%" stopColor="#d0ba80"/>
+          </linearGradient>
+          <radialGradient id="cl" cx="50%" cy="42%" r="55%">
+            <stop offset="0%" stopColor="#fff8e0" stopOpacity="0.4"/>
+            <stop offset="100%" stopColor="#000" stopOpacity="0"/>
+          </radialGradient>
+          <filter id="pf" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" stitchTiles="stitch" result="n"/>
+            <feColorMatrix type="saturate" values="0" in="n" result="gn"/>
+            <feBlend in="SourceGraphic" in2="gn" mode="multiply" result="b"/>
+            <feComposite in="b" in2="SourceGraphic" operator="in"/>
+          </filter>
+          <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <pattern id="h1" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="4" stroke="#7a4a18" strokeWidth="0.6" strokeOpacity="0.45"/>
+          </pattern>
+          <pattern id="h2" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+            <line x1="0" y1="0" x2="0" y2="4" stroke="#7a4a18" strokeWidth="0.5" strokeOpacity="0.3"/>
+          </pattern>
+        </defs>
+
+        {/* Parchment */}
+        <rect width="560" height="780" rx="3" fill="url(#pg)"/>
+        <rect width="560" height="780" rx="3" fill="url(#pf)" opacity="0.3"/>
+        <rect width="560" height="780" rx="3" fill="url(#cl)"/>
+        <rect width="560" height="780" rx="3" fill="none" stroke="#7a5020" strokeWidth="7" opacity="0.35"/>
+        <rect x="4" y="4" width="552" height="772" rx="2" fill="none" stroke="#a07830" strokeWidth="1" opacity="0.25"/>
+
+        {/* Top text */}
+        {TOP_LINES.map((line, i) => (
+          <text key={i} x="280" y={26 + i*15}
+            textAnchor="middle"
+            fontFamily="Palatino Linotype, Palatino, Georgia, serif"
+            fontStyle="italic" fontSize="8" fill="#3a1e08" opacity={0.72}>
+            {line}
+          </text>
+        ))}
+        <line x1="80" y1="130" x2="480" y2="130" stroke="#8b5e20" strokeWidth="0.5" opacity="0.4"/>
+
+        {/* ── VITRUVIAN MAN — served from /vitruvian.jpg ── */}
+        <image
+          href="/vitruvian.jpg"
+          x="55" y="125" width="450" height="560"
+          preserveAspectRatio="xMidYMid meet"
+          style={{mixBlendMode:'multiply', opacity:0.92}}
+        />
+
+        {/* ── DOMAIN ARC LABELS (only when data exists) ── */}
+        {Object.entries(DOMAIN_BODY).map(([key, d]) => {
+          const count = counts[key] || 0;
+          if (count === 0) return null;
+          const color = DOMAIN_COLOR[key] || '#888';
+          const tp = getLP(d.la);
+          const a = d.la;
+          const tx = CX + (CR+4)*Math.cos(toRad(a));
+          const ty = CY + (CR+4)*Math.sin(toRad(a));
+          return (
+            <g key={key}>
+              <line x1={tx} y1={ty} x2={tp.x} y2={tp.y}
+                stroke={color} strokeWidth="1" opacity="0.65"/>
+              <text x={tp.x} y={tp.y}
+                textAnchor="middle" dominantBaseline="middle"
+                transform={"rotate(" + tp.rot + "," + tp.x + "," + tp.y + ")"}
+                fontFamily="Palatino Linotype, Georgia, serif"
+                fontStyle="italic" fontSize="9.5" fill={color} opacity="0.92">
+                {d.label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* ── DOMAIN HOTSPOT PINS ── */}
+        {Object.entries(DOMAIN_BODY).map(([key, d]) => {
+          const count = counts[key] || 0;
+          const color = DOMAIN_COLOR[key] || '#888';
+          const isH = hovered === key;
+          return (
+            <g key={key} style={{cursor:'pointer'}}
+              onMouseEnter={() => setHovered(key)}
+              onMouseLeave={() => setHovered(null)}>
+              {count > 0 && (
+                <circle cx={d.cx} cy={d.cy} r="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45">
+                  <animate attributeName="r" values="7;16;7" dur="2.2s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0.45;0;0.45" dur="2.2s" repeatCount="indefinite"/>
+                </circle>
+              )}
+              <circle cx={d.cx} cy={d.cy} r={count > 0 ? 6 : 3.5}
+                fill={count > 0 ? color : '#9a7040'}
+                stroke="#f0e4b8" strokeWidth="1.2"
+                opacity={count > 0 ? 0.92 : 0.38}
+                filter={count > 0 ? "url(#glow)" : undefined}/>
+              {count > 0 && (
+                <text x={d.cx+8} y={d.cy-5}
+                  fontSize="8" fill={color} fontWeight="bold" opacity="0.9">
+                  {count}
+                </text>
+              )}
+              {isH && (
+                <g>
+                  <rect x={d.cx+10} y={d.cy-24} width="125" height="42" rx="3"
+                    fill="#1a0f06" stroke={color} strokeWidth="1" opacity="0.94"/>
+                  <text x={d.cx+72} y={d.cy-12}
+                    textAnchor="middle" fontSize="9" fill={color} fontWeight="bold">
+                    {d.label}
+                  </text>
+                  <text x={d.cx+72} y={d.cy}
+                    textAnchor="middle" fontSize="7.5" fill="#c8a060">
+                    {d.region}
+                  </text>
+                  <text x={d.cx+72} y={d.cy+11}
+                    textAnchor="middle" fontSize="7.5" fill="#887050">
+                    {count} signal{count !== 1 ? 's' : ''}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Bottom text */}
+        <line x1="80" y1="687" x2="480" y2="687" stroke="#8b5e20" strokeWidth="0.5" opacity="0.4"/>
+        {BOT_LINES.map((line, i) => (
+          <text key={i} x="280" y={697 + i*10}
+            textAnchor="middle"
+            fontFamily="Palatino Linotype, Palatino, Georgia, serif"
+            fontStyle="italic" fontSize="7.5" fill="#3a1e08" opacity={0.68 - i*0.02}>
+            {line}
+          </text>
+        ))}
+      </svg>
+
+      {/* Legend */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:'6px 14px',marginTop:14,
+        justifyContent:'center',maxWidth:500}}>
+        {Object.entries(DOMAIN_BODY).map(([key, d]) => {
+          const count = counts[key] || 0;
+          const color = DOMAIN_COLOR[key];
+          return (
+            <div key={key} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',
+              opacity: count > 0 ? 1 : 0.38}}
+              onMouseEnter={() => setHovered(key)}
+              onMouseLeave={() => setHovered(null)}>
+              <div style={{width:7,height:7,borderRadius:'50%',background:color,
+                boxShadow: count > 0 ? '0 0 6px ' + color : 'none'}}/>
+              <span style={{color:'#c8a060',fontSize:9.5,fontFamily:'Georgia,serif',fontStyle:'italic'}}>
+                {d.label}{count > 0 ? ' ('+count+')' : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ─────────────────────────────────────────
+function App() {
+  const [tab, setTab] = useState('digest');
+  const [insights, setInsights] = useState([]);
+  const [domains, setDomains] = useState([]);
+  const [stats, setStats] = useState({});
+  const [enabled, setEnabled] = useState({});
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [iRes, dRes, sRes] = await Promise.all([
+        fetch(API + '/api/insights?days_back=365&limit=200'),
+        fetch(API + '/api/domains'),
+        fetch(API + '/api/stats'),
+      ]);
+      const iData = await iRes.json();
+      const dData = await dRes.json();
+      const sData = await sRes.json();
+      setInsights(Array.isArray(iData) ? iData : []);
+      setDomains(Array.isArray(dData) ? dData : []);
+      setStats(sData);
+      setEnabled(prev => {
+        const next = {...prev};
+        (Array.isArray(dData) ? dData : []).forEach(d => {
+          if (next[d.name] === undefined) next[d.name] = true;
+        });
+        return next;
+      });
+      setLastUpdate(new Date());
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const toggle = name => setEnabled(p => ({...p, [name]: !p[name]}));
+  const filtered = insights.filter(i => enabled[i.domain] !== false);
+
+  const TABS = [
+    {id:'digest',   label:'📋 Digest'},
+    {id:'landscape',label:'🌍 Landscape'},
+    {id:'world',    label:'🗺 World Grid'},
+    {id:'body',     label:'🫀 Body Map'},
+    {id:'tracker',  label:'🔭 Tracker'},
+  ];
+
+  const showSidebar = ['digest','landscape','tracker'].includes(tab);
+
+  return (
+    <div>
+      <div className="header">
+        <div className="header-left">
+          <h1>SENTINEL</h1>
+          <p>Medeed Intelligence</p>
+        </div>
+        <div className="header-right">
+          <span>Updated {lastUpdate.toLocaleTimeString()}</span>
+          <button className="btn-refresh" onClick={fetchAll}>Refresh</button>
+        </div>
+      </div>
+      <div className="nav">
+        {TABS.map(t => (
+          <div key={t.id} className={"nav-tab" + (tab===t.id?' active':'')}
+            onClick={() => setTab(t.id)}>
+            {t.label}
+          </div>
+        ))}
+      </div>
+      {(tab === 'world') ? (
+        loading ? <div className="loading">Loading…</div>
+          : <WorldMapView insights={insights} />
+      ) : (tab === 'body') ? (
+        loading ? <div className="loading">Loading…</div>
+          : <BodyMapView insights={insights} />
+      ) : (
+        <div className="layout">
+          {showSidebar && (
+            <div className="sidebar">
+              <div className="sidebar-section">
+                <div className="sidebar-title">Domains</div>
+                {domains.map(d => (
+                  <div key={d.name} className="toggle-item" onClick={() => toggle(d.name)}>
+                    <div className={"toggle" + (enabled[d.name]!==false?' on':'')}>
+                      <div className="toggle-dot"/>
+                    </div>
+                    <span className="toggle-label">{d.label || d.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="main">
+            {loading ? (
+              <div className="loading">Loading intelligence…</div>
+            ) : tab === 'digest' ? (
+              <DigestView insights={filtered} stats={stats} onSelect={setSelected} />
+            ) : tab === 'landscape' ? (
+              <LandscapeView domains={domains} insights={insights} />
+            ) : (
+              <TrackerView />
+            )}
+          </div>
+        </div>
+      )}
+      {selected && (
+        <DetailPanel insight={selected} onClose={() => setSelected(null)}
+          onRead={() => {
+            fetch(API + '/api/insights/' + selected.id + '/read', {method:'PATCH'});
+            setSelected(s => ({...s, is_read:1}));
+          }}/>
+      )}
+    </div>
+  );
+}
+
+// ── DIGEST ───────────────────────────────────────────
+function DigestView({ insights, stats, onSelect }) {
+  if (insights.length === 0) {
+    return (
+      <div className="empty">
+        <div className="empty-icon">📋</div>
+        <p>No insights yet. Check back soon!</p>
+        <small>The crawler runs in the background. First run may take 15–20 minutes.</small>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="stats-bar">
+        <div className="stat-card"><div className="num">{stats.total||0}</div><div className="lbl">Total Insights</div></div>
+        <div className="stat-card"><div className="num">{stats.path1||0}</div><div className="lbl">Path 1 (Novel Biology)</div></div>
+        <div className="stat-card"><div className="num">{stats.path2||0}</div><div className="lbl">Path 2 (Deal Targets)</div></div>
+        <div className="stat-card"><div className="num">{stats.unread||0}</div><div className="lbl">Unread</div></div>
+      </div>
+      {insights.map(i => <InsightCard key={i.id} insight={i} onClick={onSelect} />)}
+    </div>
+  );
+}
+
+function InsightCard({ insight: i, onClick }) {
+  const pathClass = i.path === 1 ? 'path1' : i.path === 2 ? 'path2' : '';
+  const urgClass  = i.urgency === 'high' ? 'urgency-high' : '';
+  return (
+    <div className={"card " + pathClass + " " + urgClass} onClick={() => onClick(i)}>
+      <div className="card-top">
+        <div className="card-title">{i.title}</div>
+        <div className="badges">
+          {i.path === 1 && <span className="badge badge-path1">Path 1</span>}
+          {i.path === 2 && <span className="badge badge-path2">Path 2</span>}
+          {i.urgency === 'high'   && <span className="badge badge-high">High</span>}
+          {i.urgency === 'medium' && <span className="badge badge-medium">Medium</span>}
+          {i.domain && <span className="badge badge-domain">{i.domain}</span>}
+        </div>
+      </div>
+      {i.synthesis && <div className="card-synthesis">{i.synthesis}</div>}
+      <div className="card-footer">
+        <span className="card-meta">{i.published_date || (i.ingested_at||'').slice(0,10)}</span>
+        <span className="card-source">{i.source}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── LANDSCAPE ────────────────────────────────────────
+function LandscapeView({ domains, insights }) {
+  return (
+    <div className="landscape-grid">
+      {domains.map(d => (
+        <div key={d.name} className="domain-card">
+          <h3>{d.label || d.name}</h3>
+          <div className="domain-count">{insights.filter(i => i.domain === d.name).length}</div>
+          <div className="domain-label">insights</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── TRACKER ──────────────────────────────────────────
+function TrackerView() {
+  return (
+    <div className="empty">
+      <div className="empty-icon">🔭</div>
+      <p>Company Tracker</p>
+      <small>Companies identified in Path 2 signals will appear here.</small>
+    </div>
+  );
+}
+
+// ── DETAIL PANEL ─────────────────────────────────────
+function DetailPanel({ insight: i, onClose, onRead }) {
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+
+  useEffect(() => {
+    fetch(API + '/api/insights/' + i.id + '/comments')
+      .then(r => r.json()).then(setComments).catch(() => {});
+    if (!i.is_read) onRead();
+  }, [i.id]);
+
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    const r = await fetch(API + '/api/insights/' + i.id + '/comments', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: newComment, author: 'Team'})
+    });
+    const data = await r.json();
+    setComments(Array.isArray(data) ? data : []);
+    setNewComment('');
+  };
+
+  return (
+    <div className="detail-panel">
+      <button className="detail-close" onClick={onClose}>✕</button>
+      <div className="badges" style={{marginBottom:'8px'}}>
+        {i.path===1 && <span className="badge badge-path1">Path 1 — Novel Biology</span>}
+        {i.path===2 && <span className="badge badge-path2">Path 2 — Deal Target</span>}
+        {i.urgency  && <span className={"badge badge-" + i.urgency}>{i.urgency}</span>}
+      </div>
+      <div className="detail-title">{i.title}</div>
+      {i.synthesis && <div className="detail-synthesis">{i.synthesis}</div>}
+      <div className="detail-meta"><strong>Source:</strong> {i.source}</div>
+      {i.company && <div className="detail-meta"><strong>Company:</strong> {i.company}</div>}
+      {i.stage   && <div className="detail-meta"><strong>Stage:</strong> {i.stage}</div>}
+      {i.domain  && <div className="detail-meta"><strong>Domain:</strong> {i.domain}</div>}
+      {i.country && <div className="detail-meta"><strong>Country:</strong> {i.country}</div>}
+      {i.source_url && (
+        <a href={i.source_url} target="_blank" className="source-link">
+          View original source →
+        </a>
+      )}
+      <div className="comment-section">
+        <h4>Team Notes</h4>
+        {comments.map(c => (
+          <div key={c.id} className="comment">
+            <div className="comment-author">{c.author}</div>
+            <div className="comment-text">{c.text}</div>
+            <div className="comment-time">{(c.created_at||'').slice(0,16)}</div>
+          </div>
+        ))}
+        <div className="comment-form">
+          <input value={newComment} onChange={e => setNewComment(e.target.value)}
+            placeholder="Add a note…"
+            onKeyDown={e => e.key === 'Enter' && addComment()}/>
+          <button onClick={addComment}>Add</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
