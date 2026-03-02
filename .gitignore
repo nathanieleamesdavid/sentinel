@@ -1,6 +1,43 @@
-.env
-data/
-certbot/
-__pycache__/
-*.pyc
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# build
+build/
+dist/
+
+# local postgres
+.data/
+
+# env
+.env*
+!.env.example
+
+# vercel
+.vercel/
+
+# os
 .DS_Store
+Thumbs.db
+
+# editor
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+coverage/
+
+# debug logs
+*.log
+
+# keys
+*.pem
