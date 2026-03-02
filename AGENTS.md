@@ -54,7 +54,7 @@ Env vars live in `.env.local` (gitignored). Required:
 
 | Variable | Purpose |
 |---|---|
-| `POSTGRES_URL` | Connection string, e.g. `postgres://oscarbatori@localhost:6432/sentinel` |
+| `DATABASE_URL` | Connection string, e.g. `postgres://oscarbatori@localhost:6432/sentinel` |
 | `ANTHROPIC_API_KEY` | Claude API key for synthesis |
 | `CRON_SECRET` | Bearer token for cron endpoint (any value for local dev) |
 
